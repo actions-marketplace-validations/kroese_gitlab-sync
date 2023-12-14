@@ -2,19 +2,6 @@ name: Build
 
 on: 
   workflow_dispatch:
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - '*'
-    paths-ignore:
-      - '**/*.md'
-      - '.gitignore'
-      - '.dockerignore'
-      - '.github/**'
-      - '.github/workflows/**'
-      - 'action.yml'
-      - 'renovate.json'
 
 concurrency:
   group: build
@@ -63,8 +50,6 @@ jobs:
     -
       name: Create a release
       uses: action-pack/github-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
       with:
         tag: "v${{ vars.MAJOR }}.${{ vars.MINOR }}"
         title: "v${{ vars.MAJOR }}.${{ vars.MINOR }}"
@@ -72,11 +57,10 @@ jobs:
           ${{ steps.changelog.outputs.changes }}
 
           **Full Changelog**: https://github.com/${{ github.repository }}/compare//${{ env.previousTag }}...v${{ vars.MAJOR }}.${{ vars.MINOR }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
     -
       name: Update major release
       uses: action-pack/github-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
       with:
         tag: "v${{ vars.MAJOR }}"
         title: "v${{ vars.MAJOR }}"
@@ -84,6 +68,7 @@ jobs:
           ${{ steps.changelog.outputs.changes }}
 
           **Full Changelog**: https://github.com/${{ github.repository }}/compare//${{ env.previousTag }}...v${{ vars.MAJOR }}.${{ vars.MINOR }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
     -
       name: Increment version variable
       uses: action-pack/bump@v2
