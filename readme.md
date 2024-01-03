@@ -21,7 +21,7 @@ jobs:
     name: Gitlab Sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: action-pack/gitlab-sync@v3
