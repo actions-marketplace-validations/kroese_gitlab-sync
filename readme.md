@@ -31,3 +31,6 @@ jobs:
           # Personal access token from gitlab.com 
           token: ${{ secrets.GITLAB_TOKEN }}
 ```
+
+## Stars
+[![Stars](https://starchart.cc/action-pack/gitlab-sync.svg?variant=adaptive)](https://starchart.cc/action-pack/gitlab-sync)
