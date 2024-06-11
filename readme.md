@@ -9,7 +9,7 @@
 
 Action to mirror a repository to GitLab.
 
-## Usage
+## Usage 🚀
 
 ```yaml
 name: Gitlab Sync
@@ -32,5 +32,5 @@ jobs:
           token: ${{ secrets.GITLAB_TOKEN }}
 ```
 
-## Stars
+## Stars 🌟
 [![Stars](https://starchart.cc/action-pack/gitlab-sync.svg?variant=adaptive)](https://starchart.cc/action-pack/gitlab-sync)
