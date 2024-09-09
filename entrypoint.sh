@@ -14,7 +14,7 @@ function git-setup() {
 }
 
 case "${GITHUB_EVENT_NAME}" in
-push|create|pull_request|workflow_dispatch)
+push|create|pull_request|workflow_dispatch|workflow_run)
   git-setup
   git fetch --all
   git push -f --all target
