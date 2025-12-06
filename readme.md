@@ -1,34 +1,36 @@
-# gitlab-sync
-[![Build](https://github.com/kroese/gitlab-sync/workflows/Build/badge.svg)](https://github.com/kroese/gitlab-sync/)
-[![Version](https://img.shields.io/github/v/tag/kroese/gitlab-sync?label=version&color=066da5)](https://github.com/kroese/gitlab-sync/)
-[![Size](https://img.shields.io/github/languages/code-size/kroese/gitlab-sync?label=size&color=066da5)](https://github.com/kroese/gitlab-sync/)
+<h1 align="center">Gitlab Sync<br />
+<div align="center">
+  
+  [![Build](https://github.com/action-pack/gitlab-sync/workflows/Build/badge.svg)](https://github.com/action-pack/gitlab-sync/)
+  [![Version](https://img.shields.io/github/v/tag/action-pack/gitlab-sync?label=version&sort=semver&color=066da5)](https://github.com/marketplace/actions/gitlab-sync)
+  [![Size](https://img.shields.io/github/languages/code-size/action-pack/gitlab-sync?label=size&color=066da5)](https://github.com/action-pack/gitlab-sync/)
+  
+</div></h1>
 
-Action to synchronize code to GitLab.
+Action to mirror a repository to GitLab.
 
-## Usage
+## Usage 🚀
 
 ```yaml
 name: Gitlab Sync
 
-on:
-  push:
-    branches:
-    - main
+on: [push, pull_request, create, delete]
 
 jobs:
   sync:
     name: Gitlab Sync
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-     - uses: kroese/gitlab-sync@v2
-      with:
-        #url: ${{ secrets.GITLAB_URL }}
-        url: https://gitlab.com/${{ github.repository }}.git
-        #username: ${{ secrets.GITLAB_USERNAME }}
-        username: ${{ github.actor }}
-        # Personal access token from gitlab.com 
-        token: ${{ secrets.GITLAB_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: action-pack/gitlab-sync@v3
+        with:
+          username: ${{ github.actor }}
+          url: https://gitlab.com/${{ github.repository }}.git
+          # Personal access token from gitlab.com 
+          token: ${{ secrets.GITLAB_TOKEN }}
 ```
+
+## Stars 🌟
+[![Stars](https://starchart.cc/action-pack/gitlab-sync.svg?variant=adaptive)](https://starchart.cc/action-pack/gitlab-sync)

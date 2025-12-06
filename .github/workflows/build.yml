@@ -1,17 +1,11 @@
 name: Build
 
 on: 
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - '*'
-    paths-ignore:
-      - '**/*.md'
-      - '.gitignore'
-      - '.dockerignore'
-      - '.github/**'
-      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: build
+  cancel-in-progress: false
 
 jobs:
   shellcheck:
@@ -25,21 +19,70 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
-      -
-        name: Create Release
-        uses: kroese/github-release@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
-        with:
-          tag: "v${{ vars.MINOR }}"
-          title: "v${{ vars.MINOR }}"
-          body: "Release v${{ vars.MINOR }}"
-      -
-        name: Increment minor version
-        uses: kroese/increment@v1
-        with:
-          name: 'MINOR'
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+    - name: Selfcheck
+      uses: action-pack/gitlab-sync@master
+      with:
+        url: ${{ secrets.GITLAB_URL }}
+        token: ${{ secrets.GITLAB_TOKEN }}
+        username: ${{ secrets.GITLAB_USERNAME }}
+    - 
+      name: Get previous tag
+      id: previousTag
+      run: |
+        name=$(git --no-pager tag --sort=creatordate --merged ${{ github.ref_name }} | tail -1)
+        echo "previousTag: $name"
+        echo "previousTag=$name" >> $GITHUB_ENV
+    -
+      name: Generate changelog
+      id: changelog
+      uses: requarks/changelog-action@v1
+      with:
+        token: ${{ github.token }}
+        fromTag: ${{ github.ref_name }}
+        toTag: ${{ env.previousTag }}
+        writeToFile: false
+        reverseOrder: true
+        includeInvalidCommits: true
+        excludeTypes: "docs,build,chore"
+    -
+      name: Create a release
+      uses: action-pack/github-release@v2
+      with:
+        tag: "v${{ vars.MAJOR }}.${{ vars.MINOR }}"
+        title: "v${{ vars.MAJOR }}.${{ vars.MINOR }}"
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        body: |
+          ${{ steps.changelog.outputs.changes }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare//${{ env.previousTag }}...v${{ vars.MAJOR }}.${{ vars.MINOR }}
+    -
+      name: Update major release
+      uses: action-pack/github-release@v2
+      with:
+        tag: "v${{ vars.MAJOR }}"
+        title: "v${{ vars.MAJOR }}"
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        body: |
+          ${{ steps.changelog.outputs.changes }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare//${{ env.previousTag }}...v${{ vars.MAJOR }}.${{ vars.MINOR }}
+    -
+      name: Increment version variable
+      uses: action-pack/bump@v2
+      with:
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    -
+      name: Send mail
+      uses: action-pack/send-mail@v1
+      with:
+          to: ${{secrets.MAILTO}}
+          from: Github Actions <${{secrets.MAILTO}}>
+          connection_url: ${{secrets.MAIL_CONNECTION}}
+          subject: Build of ${{ github.event.repository.name }} v${{ vars.MAJOR }}.${{ vars.MINOR }} completed
+          body: |
+              The build job of ${{ github.event.repository.name }} v${{ vars.MAJOR }}.${{ vars.MINOR }} was completed successfully! 
+              
+              See https://github.com/${{ github.repository }}/actions for more information.
