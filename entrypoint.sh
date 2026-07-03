@@ -1,62 +1,126 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-echo "${GITHUB_EVENT_NAME}"
+log() {
+  printf '%s\n' "$*"
+}
+
+error() {
+  printf 'ERROR: %s\n' "$*" >&2
+}
+
+log "Event: ${GITHUB_EVENT_NAME}"
 
 git_setup() {
-  local target_url="${INPUT_TARGET_URL#https://}"
-  local clean_url="https://${target_url}"
-  local cred_file="${RUNNER_TEMP:-/tmp}/git-credentials"
+  local target_url="${INPUT_TARGET_URL:-}"
+  local target_username="${INPUT_TARGET_USERNAME:-}"
+  local target_token="${INPUT_TARGET_TOKEN:-}"
+  local target_host_path
+  local cred_file
 
-  # Mask secrets in logs as early as possible
-  echo "::add-mask::${INPUT_TARGET_TOKEN}"
-  echo "::add-mask::${INPUT_TARGET_USERNAME}:${INPUT_TARGET_TOKEN}"
-  echo "::add-mask::https://${INPUT_TARGET_USERNAME}:${INPUT_TARGET_TOKEN}@${target_url}"
+  if [ -z "$target_url" ]; then
+    error "target URL is required."
+    exit 1
+  fi
 
-  # Add the remote without credentials, so .git/config does not contain the token
+  if [ -z "$target_username" ]; then
+    error "target username is required."
+    exit 1
+  fi
+
+  if [ -z "$target_token" ]; then
+    error "target token is required."
+    exit 1
+  fi
+
+  case "$target_url" in
+    https://*)
+      ;;
+    *)
+      error "only https:// target URLs are supported."
+      exit 1
+      ;;
+  esac
+
+  target_host_path="${target_url#https://}"
+  cred_file="${RUNNER_TEMP:-/tmp}/git-credentials"
+
+  # Mask secrets before anything can print them.
+  echo "::add-mask::${target_token}"
+  echo "::add-mask::${target_username}:${target_token}"
+  echo "::add-mask::https://${target_username}:${target_token}@${target_host_path}"
+
+  log "Configuring target remote..."
+
+  # Add the remote without credentials, so .git/config does not store the token.
   git remote remove target 2>/dev/null || true
-  git remote add target "${clean_url}"
+  git remote add target "$target_url"
 
-  # Store credentials in a temporary credential file
+  log "Configuring temporary Git credentials..."
+
+  # Store credentials only in a temporary file for this job.
   printf 'https://%s:%s@%s\n' \
-    "${INPUT_TARGET_USERNAME}" \
-    "${INPUT_TARGET_TOKEN}" \
-    "${target_url}" > "$cred_file"
+    "$target_username" \
+    "$target_token" \
+    "$target_host_path" > "$cred_file"
 
   chmod 0600 "$cred_file"
 
   git config --global credential.helper "store --file=$cred_file"
 
-  # Never allow Git to prompt interactively in CI
   export GIT_TERMINAL_PROMPT=0
 }
 
+sync_refs() {
+  log "Fetching refs..."
+  git fetch --all --prune
+
+  log "Pushing branches..."
+  git push --force --prune target 'refs/heads/*:refs/heads/*'
+
+  log "Pushing tags..."
+  git push --force target 'refs/tags/*:refs/tags/*'
+}
+
+delete_ref() {
+  local ref="${GITHUB_EVENT_REF:-}"
+  local ref_type="${GITHUB_EVENT_REF_TYPE:-}"
+
+  if [ -z "$ref" ]; then
+    error "GITHUB_EVENT_REF is empty."
+    exit 1
+  fi
+
+  case "$ref_type" in
+    branch)
+      ref="${ref#refs/heads/}"
+      log "Deleting branch: ${ref}"
+      git push target ":refs/heads/${ref}"
+      ;;
+    tag)
+      ref="${ref#refs/tags/}"
+      log "Deleting tag: ${ref}"
+      git push target ":refs/tags/${ref}"
+      ;;
+    *)
+      error "unsupported or empty GITHUB_EVENT_REF_TYPE: ${ref_type}"
+      exit 1
+      ;;
+  esac
+}
+
 case "${GITHUB_EVENT_NAME}" in
-  push|create|pull_request|workflow_dispatch|workflow_run)
+  push|create|workflow_dispatch|workflow_run)
     git_setup
-    git fetch --all --prune
-
-    # Mirror only branches.
-    git push --force --prune target 'refs/heads/*:refs/heads/*'
-
-    # Mirror only tags.
-    git push --force target 'refs/tags/*:refs/tags/*'
+    sync_refs
     ;;
 
   delete)
     git_setup
-
-    case "${GITHUB_EVENT_REF_TYPE}" in
-      branch)
-        git push target ":refs/heads/${GITHUB_EVENT_REF}"
-        ;;
-      tag)
-        git push target ":refs/tags/${GITHUB_EVENT_REF}"
-        ;;
-    esac
+    delete_ref
     ;;
 
   *)
-    :
+    log "Nothing to sync for event: ${GITHUB_EVENT_NAME}"
     ;;
 esac
