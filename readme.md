@@ -1,4 +1,4 @@
-<h1 align="center">Gitlab Sync<br />
+<h1 align="center">GitLab Sync<br />
 <div align="center">
   
   [![Build](https://github.com/action-pack/gitlab-sync/workflows/Build/badge.svg)](https://github.com/action-pack/gitlab-sync/)
@@ -7,30 +7,36 @@
   
 </div></h1>
 
-Action to mirror a repository to GitLab.
+GitHub Action to mirror a repository to GitLab.
 
 ## Usage 🚀
 
 ```yaml
-name: Gitlab Sync
-
-on: [push, pull_request, create, delete]
+name: GitLab Sync
+on: [push, create, delete, workflow_dispatch]
 
 jobs:
   sync:
-    name: Gitlab Sync
+    name: GitLab Sync
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
+          # Required to mirror all branches and tags.
           fetch-depth: 0
+
       - uses: action-pack/gitlab-sync@v3
         with:
-          username: ${{ github.actor }}
-          url: https://gitlab.com/${{ github.repository }}.git
-          # Personal access token from gitlab.com 
+          username: your-gitlab-username
+          url: https://gitlab.com/your-gitlab-namespace/your-repo.git
+          # Personal access token with write access to the target GitLab repository.
           token: ${{ secrets.GITLAB_TOKEN }}
 ```
+
+## Notes
+
+On GitLab.com, create a personal access token with the `write_repository` scope and save it as a GitHub secret, for example `GITLAB_TOKEN`. The target repository must already exist.
 
 ## Stars 🌟
 [![Stargazers](https://raw.githubusercontent.com/star-stats/stars/refs/heads/data/charts/action-pack-gitlab-sync.svg)](https://github.com/action-pack/gitlab-sync/stargazers)
