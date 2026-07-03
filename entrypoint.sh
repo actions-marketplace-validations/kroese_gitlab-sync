@@ -34,15 +34,26 @@ git_setup() {
 case "${GITHUB_EVENT_NAME}" in
   push|create|pull_request|workflow_dispatch|workflow_run)
     git_setup
-    git fetch --all
-    git push -f --all target
-    git push -f --prune target
-    git push -f --tags target
+    git fetch --all --prune
+
+    # Mirror only branches.
+    git push --force --prune target 'refs/heads/*:refs/heads/*'
+
+    # Mirror only tags.
+    git push --force target 'refs/tags/*:refs/tags/*'
     ;;
 
   delete)
     git_setup
-    git push -d target "${GITHUB_EVENT_REF}"
+
+    case "${GITHUB_EVENT_REF_TYPE}" in
+      branch)
+        git push target ":refs/heads/${GITHUB_EVENT_REF}"
+        ;;
+      tag)
+        git push target ":refs/tags/${GITHUB_EVENT_REF}"
+        ;;
+    esac
     ;;
 
   *)
