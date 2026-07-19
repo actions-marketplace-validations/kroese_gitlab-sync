@@ -71,15 +71,52 @@ git_setup() {
   export GIT_TERMINAL_PROMPT=0
 }
 
+retry() {
+  local attempt=1
+  local attempts=4
+  local delay=5
+  local output
+  local status
+
+  while :; do
+    output=$(mktemp "${RUNNER_TEMP:-/tmp}/gitlab-sync.XXXXXX")
+
+    if "$@" 2>&1 | tee "$output"; then
+      rm -f "$output"
+      return 0
+    else
+      status=${PIPESTATUS[0]}
+    fi
+
+    if (( attempt >= attempts )) || ! grep -Eqi \
+      'GitLab: Internal API error \(5[0-9]{2}\)|requested URL returned error: 5[0-9]{2}|HTTP[^0-9]+5[0-9]{2}|5[0-9]{2} (Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out)' \
+      "$output"; then
+      rm -f "$output"
+      return "$status"
+    fi
+
+    rm -f "$output"
+
+    (( attempt++ ))
+
+    log "Transient server error detected; retrying in ${delay} seconds (attempt ${attempt}/${attempts})..."
+    sleep "$delay"
+
+    (( delay *= 2 ))
+  done
+}
+
 sync_refs() {
   log "Fetching refs..."
-  git fetch --all --prune
+  retry git fetch --all --prune
 
   log "Pushing branches..."
-  git push --force --prune target 'refs/heads/*:refs/heads/*'
+  retry git push --force --prune target \
+    'refs/heads/*:refs/heads/*'
 
   log "Pushing tags..."
-  git push --force target 'refs/tags/*:refs/tags/*'
+  retry git push --force target \
+    'refs/tags/*:refs/tags/*'
 }
 
 delete_ref() {
@@ -95,12 +132,12 @@ delete_ref() {
     branch)
       ref="${ref#refs/heads/}"
       log "Deleting branch: ${ref}"
-      git push target ":refs/heads/${ref}"
+      retry git push target ":refs/heads/${ref}"
       ;;
     tag)
       ref="${ref#refs/tags/}"
       log "Deleting tag: ${ref}"
-      git push target ":refs/tags/${ref}"
+      retry git push target ":refs/tags/${ref}"
       ;;
     *)
       error "unsupported or empty GITHUB_EVENT_REF_TYPE: ${ref_type}"
