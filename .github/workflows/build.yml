@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Selfcheck
@@ -62,6 +62,7 @@ jobs:
       name: Update major release
       uses: action-pack/github-release@v2
       with:
+        latest: false
         tag: "v${{ vars.MAJOR }}"
         title: "v${{ vars.MAJOR }}"
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
